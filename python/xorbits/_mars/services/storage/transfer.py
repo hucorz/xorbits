@@ -336,9 +336,6 @@ class ReceiverManagerActor(mo.StatelessActor):
 
         if tasks:
             writers = await self._storage_handler.open_writer.batch(*tuple(tasks.values()))
-            print(
-                f"ReceiverManagerActor create_writers {len(asyncio.all_tasks(asyncio.get_event_loop()))} pid: {os.getpid()} tid: {threading.current_thread().ident} lid: {id(asyncio.get_event_loop())}"
-            )
             for data_key, writer in zip(tasks, writers):
                 self._writing_infos[(session_id, data_key)] = WritingInfo(
                     writer, data_key_to_size[data_key], level, asyncio.Event(), 1
