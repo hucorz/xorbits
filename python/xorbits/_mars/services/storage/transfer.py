@@ -161,9 +161,9 @@ class SenderManagerActor(mo.StatelessActor):
             "Begin to send data (%s, %s) to %s", session_id, data_keys, remote_band
         )
 
-        receiver_ref: mo.ActorRefType[ReceiverManagerActor] = (
-            await self.get_receiver_ref(remote_band[0], remote_band[1])
-        )
+        receiver_ref: mo.ActorRefType[
+            ReceiverManagerActor
+        ] = await self.get_receiver_ref(remote_band[0], remote_band[1])
 
         if to_send_keys:
             logger.debug("Start sending %s to %s", to_send_keys, receiver_ref.address)
