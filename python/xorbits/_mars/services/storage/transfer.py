@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import asyncio
 import logging
 from dataclasses import dataclass
@@ -345,3 +346,6 @@ class ReceiverManagerActor(mo.StatelessActor):
                 if key_to_sub_infos[data_key] is not None:
                     writer._sub_key_infos = key_to_sub_infos[data_key]
         return being_processed
+
+    def get_pid(self):
+        return os.getpid()

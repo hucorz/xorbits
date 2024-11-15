@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import asyncio
 import logging
 from collections import defaultdict
@@ -628,7 +629,7 @@ class StorageHandlerActor(mo.Actor):
         # to prevent deadlocks. This is necessary because there is only one GPU storage handler
         # and its associated receiver, and performing the `open_writer` operation within the
         # handler itself helps avoid locking issues.
-        if self._band_name.startswith("gpu"):
+        if os.getpid() == (await receiver_ref.get_pid()):
             writers = await self.open_writer.batch(*open_writer_tasks)
             is_transferring_list = await receiver_ref.add_gpu_writers(
                 session_id, data_keys, data_sizes, sub_infos, writers, level
@@ -636,7 +637,7 @@ class StorageHandlerActor(mo.Actor):
         # If the band name indicates NUMA, we initiate the writer creation via the receiver's
         # NUMA storage handler to prevent serialization issues within the loop. By using the
         # NUMA storage handler on the receiver's side, we can safely manage writer creation.
-        elif self._band_name.startswith("numa"):
+        else:
             is_transferring_list = await receiver_ref.create_writers(
                 session_id, data_keys, data_sizes, level, sub_infos, fetch_band_name
             )
