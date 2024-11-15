@@ -263,7 +263,7 @@ class ReceiverManagerActor(mo.StatelessActor):
         if self._writing_infos[(session_id, data_key)].ref_counts == 0:
             del self._writing_infos[(session_id, data_key)]
 
-    async def add_writers(
+    async def add_gpu_writers(
         self,
         session_id: str,
         data_keys: List[Union[str, tuple]],
@@ -272,6 +272,13 @@ class ReceiverManagerActor(mo.StatelessActor):
         writers: List[Optional[WrappedStorageFileObject]],
         level: StorageLevel,
     ) -> List[bool]:
+        """
+        This method is called only by the GPU storage handler. To avoid deadlocks, 
+        the `writers` passed in are already opened directly within the GPU storage 
+        handler before being provided here. This function checks for each (session_id, data_key)
+        pair to see if there is an active writing operation. If none exists, it initializes 
+        a `WritingInfo` entry for that key; otherwise, it marks it as already transferring.
+        """
         is_transferring: List[bool] = []
         async with self._lock:
             for data_key, data_size, sub_info, writer in zip(
@@ -296,3 +303,46 @@ class ReceiverManagerActor(mo.StatelessActor):
         async with self._lock:
             for data_key in data_keys:
                 self._decref_writing_key(session_id, data_key)
+
+    async def create_writers(
+        self,
+        session_id: str,
+        data_keys: List[str],
+        data_sizes: List[int],
+        level: StorageLevel,
+        sub_infos: List,
+        band_name: str,
+    ):
+        tasks = dict()
+        key_to_sub_infos = dict()
+        data_key_to_size = dict()
+        being_processed = []
+        for data_key, data_size, sub_info in zip(data_keys, data_sizes, sub_infos):
+            data_key_to_size[data_key] = data_size
+            if (session_id, data_key) not in self._writing_infos:
+                being_processed.append(False)
+                tasks[data_key] = self._storage_handler.open_writer.delay(
+                    session_id,
+                    data_key,
+                    data_size,
+                    level,
+                    request_quota=False,
+                    band_name=band_name,
+                )
+                key_to_sub_infos[data_key] = sub_info
+            else:
+                being_processed.append(True)
+                self._writing_infos[(session_id, data_key)].ref_counts += 1
+
+        if tasks:
+            writers = await self._storage_handler.open_writer.batch(*tuple(tasks.values()))
+            print(
+                f"ReceiverManagerActor create_writers {len(asyncio.all_tasks(asyncio.get_event_loop()))} pid: {os.getpid()} tid: {threading.current_thread().ident} lid: {id(asyncio.get_event_loop())}"
+            )
+            for data_key, writer in zip(tasks, writers):
+                self._writing_infos[(session_id, data_key)] = WritingInfo(
+                    writer, data_key_to_size[data_key], level, asyncio.Event(), 1
+                )
+                if key_to_sub_infos[data_key] is not None:
+                    writer._sub_key_infos = key_to_sub_infos[data_key]
+        return being_processed

@@ -623,10 +623,23 @@ class StorageHandlerActor(mo.Actor):
                     band_name=fetch_band_name,
                 )
             )
-        writers = await self.open_writer.batch(*open_writer_tasks)
-        is_transferring_list = await receiver_ref.add_writers(
-            session_id, data_keys, data_sizes, sub_infos, writers, level
-        )
+
+        # If the band name indicates a GPU, we open writers directly through `self.open_writer`
+        # to prevent deadlocks. This is necessary because there is only one GPU storage handler
+        # and its associated receiver, and performing the `open_writer` operation within the
+        # handler itself helps avoid locking issues.
+        if self._band_name.startswith("gpu"):
+            writers = await self.open_writer.batch(*open_writer_tasks)
+            is_transferring_list = await receiver_ref.add_gpu_writers(
+                session_id, data_keys, data_sizes, sub_infos, writers, level
+            )
+        # If the band name indicates NUMA, we initiate the writer creation via the receiver's
+        # NUMA storage handler to prevent serialization issues within the loop. By using the
+        # NUMA storage handler on the receiver's side, we can safely manage writer creation.
+        elif self._band_name.startswith("numa"):
+            is_transferring_list = await receiver_ref.create_writers(
+                session_id, data_keys, data_sizes, level, sub_infos, fetch_band_name
+            )
 
         to_send_keys = []
         to_wait_keys = []
