@@ -161,9 +161,9 @@ class SenderManagerActor(mo.StatelessActor):
             "Begin to send data (%s, %s) to %s", session_id, data_keys, remote_band
         )
 
-        receiver_ref: mo.ActorRefType[
-            ReceiverManagerActor
-        ] = await self.get_receiver_ref(remote_band[0], remote_band[1])
+        receiver_ref: mo.ActorRefType[ReceiverManagerActor] = (
+            await self.get_receiver_ref(remote_band[0], remote_band[1])
+        )
 
         if to_send_keys:
             logger.debug("Start sending %s to %s", to_send_keys, receiver_ref.address)
@@ -273,10 +273,10 @@ class ReceiverManagerActor(mo.StatelessActor):
         level: StorageLevel,
     ) -> List[bool]:
         """
-        This method is called only by the GPU storage handler. To avoid deadlocks, 
-        the `writers` passed in are already opened directly within the GPU storage 
+        This method is called only by the GPU storage handler. To avoid deadlocks,
+        the `writers` passed in are already opened directly within the GPU storage
         handler before being provided here. This function checks for each (session_id, data_key)
-        pair to see if there is an active writing operation. If none exists, it initializes 
+        pair to see if there is an active writing operation. If none exists, it initializes
         a `WritingInfo` entry for that key; otherwise, it marks it as already transferring.
         """
         is_transferring: List[bool] = []
@@ -335,7 +335,9 @@ class ReceiverManagerActor(mo.StatelessActor):
                 self._writing_infos[(session_id, data_key)].ref_counts += 1
 
         if tasks:
-            writers = await self._storage_handler.open_writer.batch(*tuple(tasks.values()))
+            writers = await self._storage_handler.open_writer.batch(
+                *tuple(tasks.values())
+            )
             for data_key, writer in zip(tasks, writers):
                 self._writing_infos[(session_id, data_key)] = WritingInfo(
                     writer, data_key_to_size[data_key], level, asyncio.Event(), 1
