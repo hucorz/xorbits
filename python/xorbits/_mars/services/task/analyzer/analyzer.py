@@ -100,12 +100,51 @@ class GraphAnalyzer:
         return next(cls._map_reduce_id)
 
     @classmethod
+    def _find_lca_depth(cls, chunk_graph: ChunkGraph, chunk1, chunk2):
+        """Find the depth of lowest common ancestor of two chunks."""
+        # Get all ancestors of chunk1 with their depths
+        ancestors1 = {}
+        queue = deque([(chunk1, 0)])
+        while queue:
+            node, depth = queue.popleft()
+            if node in ancestors1:
+                continue
+            ancestors1[node] = depth
+            for pred in chunk_graph.predecessors(node):
+                queue.append((pred, depth + 1))
+        
+        # Find LCA by traversing chunk2's ancestors
+        queue = deque([(chunk2, 0)])
+        visited = set()
+        while queue:
+            node, depth = queue.popleft()
+            if node in visited:
+                continue
+            visited.add(node)
+            if node in ancestors1:
+                return ancestors1[node]  # Return depth from chunk1's perspective
+            for pred in chunk_graph.predecessors(node):
+                queue.append((pred, depth + 1))
+        return -1  # No common ancestor
+
+    @classmethod
     def _iter_start_ops(cls, chunk_graph: ChunkGraph):
         visited = set()
         op_keys = set()
-        start_chunks = deque(chunk_graph.iter_indep())
-        stack = deque([start_chunks.popleft()])
-
+        start_chunks = list(chunk_graph.iter_indep())
+        if start_chunks:
+            # Keep the first chunk as is
+            first_chunk = start_chunks[0]
+            # Sort remaining chunks based on LCA depth with first chunk
+            remaining_chunks = sorted(
+                start_chunks[1:],
+                key=lambda x: cls._find_lca_depth(chunk_graph, first_chunk, x),
+                reverse=True  # Higher depth (deeper LCA) comes first
+            )
+            start_chunks = [first_chunk] + remaining_chunks
+        
+        stack = deque([start_chunks[0]])
+        start_chunks = deque(start_chunks[1:])
         while stack:
             chunk = stack.popleft()
             if chunk not in visited:
