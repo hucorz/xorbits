@@ -89,6 +89,7 @@ async def start_worker(
     await start_services(
         NodeRole.WORKER, config, address=address, mark_ready=mark_ready
     )
+    print(f"Worker Start Success")
     logger.debug("Mars worker started at %s", address)
 
 
