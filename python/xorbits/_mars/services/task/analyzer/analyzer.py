@@ -101,17 +101,28 @@ class GraphAnalyzer:
 
     @classmethod
     def _find_lca_depth(cls, chunk_graph: ChunkGraph, chunk1, chunk2):
-        """Find the depth of lowest common ancestor of two chunks."""
+        """Find the depth of lowest common ancestor of two chunks.
+        
+        In the computation graph:
+        - Edges point from leaf nodes to root nodes
+        - Depth decreases as we move towards root (root has depth 0)
+        - We use successors to move towards root/ancestor nodes
+        """
         # Get all ancestors of chunk1 with their depths
         ancestors1 = {}
+        max_depth = 0
         queue = deque([(chunk1, 0)])
         while queue:
             node, depth = queue.popleft()
             if node in ancestors1:
                 continue
             ancestors1[node] = depth
-            for pred in chunk_graph.predecessors(node):
-                queue.append((pred, depth + 1))
+            max_depth = max(max_depth, depth)
+            for succ in chunk_graph.successors(node):
+                queue.append((succ, depth + 1))
+        
+        # Convert depths so root has depth 0
+        ancestors1 = {node: max_depth - depth for node, depth in ancestors1.items()}
         
         # Find LCA by traversing chunk2's ancestors
         queue = deque([(chunk2, 0)])
@@ -122,16 +133,17 @@ class GraphAnalyzer:
                 continue
             visited.add(node)
             if node in ancestors1:
-                return ancestors1[node]  # Return depth from chunk1's perspective
-            for pred in chunk_graph.predecessors(node):
-                queue.append((pred, depth + 1))
-        return -1  # No common ancestor
+                return ancestors1[node]  # Return depth from root's perspective (smaller means closer to root)
+            for succ in chunk_graph.successors(node):
+                queue.append((succ, depth + 1))
+        return max_depth + 1  # No common ancestor should be sorted last
 
     @classmethod
     def _iter_start_ops(cls, chunk_graph: ChunkGraph):
         visited = set()
         op_keys = set()
         start_chunks = list(chunk_graph.iter_indep())
+        print(f"init start_chunks: {start_chunks[:5]}")
         if start_chunks:
             # Keep the first chunk as is
             first_chunk = start_chunks[0]
@@ -142,7 +154,8 @@ class GraphAnalyzer:
                 reverse=True  # Higher depth (deeper LCA) comes first
             )
             start_chunks = [first_chunk] + remaining_chunks
-        
+        print(f"sorted start_chunks: {start_chunks[:5]}\n\n")
+
         stack = deque([start_chunks[0]])
         start_chunks = deque(start_chunks[1:])
         while stack:
