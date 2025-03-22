@@ -26,7 +26,9 @@ import pytest
 from ....._mars.tests.core import mock
 from ..from_huggingface import from_huggingface
 
-SAMPLE_DATASET_IDENTIFIER = "lhoestq/test"  # has dataset script
+SAMPLE_DATASET_IDENTIFIER = (
+    "lhoestq/test"  # has dataset script. WARNING: now has been deleted
+)
 SAMPLE_DATASET_IDENTIFIER2 = "lhoestq/test2"  # only has data files
 SAMPLE_DATASET_IDENTIFIER3 = (
     "hf-internal-testing/multi_dir_dataset"  # has multiple data directories
@@ -34,6 +36,7 @@ SAMPLE_DATASET_IDENTIFIER3 = (
 SAMPLE_DATASET_IDENTIFIER4 = "hf-internal-testing/imagefolder_with_metadata"  # imagefolder with a metadata file outside of the train/test directories
 
 
+@pytest.mark.skip(reason="lhoestq/test repository has been deleted")
 def test_split_arg_required():
     with pytest.raises(Exception, match="split"):
         from_huggingface(SAMPLE_DATASET_IDENTIFIER)
@@ -42,14 +45,14 @@ def test_split_arg_required():
 @pytest.mark.parametrize(
     "path",
     [
-        SAMPLE_DATASET_IDENTIFIER,
+        # SAMPLE_DATASET_IDENTIFIER,
         SAMPLE_DATASET_IDENTIFIER2,
         SAMPLE_DATASET_IDENTIFIER3,
         SAMPLE_DATASET_IDENTIFIER4,
     ],
 )
 def test_from_huggingface_execute(setup, path):
-    xds = from_huggingface(path, split="train")
+    xds = from_huggingface(path, split="train", trust_remote_code=True)
     xds.execute()
     ds = xds.fetch()
     ds_expected = datasets.load_dataset(path, split="train")
@@ -78,12 +81,12 @@ def test_from_huggingface_file_lock(setup):
 @pytest.mark.parametrize(
     "path",
     [
-        SAMPLE_DATASET_IDENTIFIER,
+        # SAMPLE_DATASET_IDENTIFIER,
         SAMPLE_DATASET_IDENTIFIER2,
     ],
 )
 def test_to_dataframe_execute(setup, path):
-    xds = from_huggingface(path, split="train")
+    xds = from_huggingface(path, split="train", trust_remote_code=True)
     mdf = xds.to_dataframe()
     mdf.execute()
     df = mdf.fetch()
@@ -94,7 +97,7 @@ def test_to_dataframe_execute(setup, path):
 @pytest.mark.parametrize(
     "path",
     [
-        SAMPLE_DATASET_IDENTIFIER,
+        # SAMPLE_DATASET_IDENTIFIER,
         SAMPLE_DATASET_IDENTIFIER2,
     ],
 )
@@ -103,7 +106,7 @@ def test_map_execute(setup, path):
         x["text"] = "xorbits: " + x["text"]
         return x
 
-    xds = from_huggingface(path, split="train")
+    xds = from_huggingface(path, split="train", trust_remote_code=True)
     xds = xds.map(add_prefix)
     xds.execute()
     ds = xds.fetch()
@@ -114,12 +117,12 @@ def test_map_execute(setup, path):
 @pytest.mark.parametrize(
     "path",
     [
-        SAMPLE_DATASET_IDENTIFIER,
+        # SAMPLE_DATASET_IDENTIFIER,
         SAMPLE_DATASET_IDENTIFIER2,
     ],
 )
 def test_rechunk_execute(setup, path):
-    xds = from_huggingface(path, split="train")
+    xds = from_huggingface(path, split="train", trust_remote_code=True)
     xds = xds.rechunk(2)
     xds.execute()
     ds = xds.fetch()
@@ -158,7 +161,7 @@ def test_export(setup):
     tmp_dir = Path(tempfile.gettempdir())
     export_dir = tmp_dir.joinpath("test_export")
     shutil.rmtree(export_dir, ignore_errors=True)
-    db = from_huggingface("cifar10", split="train")
+    db = from_huggingface("cifar10", split="train", trust_remote_code=True)
     # Test invalid export dir
     Path(export_dir).touch()
     with pytest.raises(Exception, match="dir"):
@@ -184,7 +187,7 @@ def test_export(setup):
         assert len(data_arrow_files) == data_meta_info["num_files"]
         assert info["num_rows"] == data_meta_info["num_rows"]
 
-        db = from_huggingface("imdb", split="train")
+        db = from_huggingface("imdb", split="train", trust_remote_code=True)
         db.export(
             export_dir,
             column_groups={"my_text": ["text"], "my_label": ["label"]},
