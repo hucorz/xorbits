@@ -3,7 +3,7 @@ name: Python CI
 on:
   push:
     branches:
-      - '*'
+      - '**'
   pull_request:
     types: ['opened', 'reopened', 'synchronize']
 
@@ -156,7 +156,7 @@ jobs:
         else
           pip install -e "git+https://github.com/xorbitsai/xoscar.git@main#subdirectory=python&egg=xoscar"
           # TODO: pandas v2.2.3 now does not support well for numpy v2.2.0 and pyarrow v19.0.0. 
-          pip install -U "numpy<2.2.0" "pyarrow<19.0.0" scipy cython pyftpdlib coverage flaky numexpr openpyxl
+          pip install -U "numpy" "pyarrow" scipy cython pyftpdlib coverage flaky numexpr openpyxl
 
           if [[ "$MODULE" == "mars-core" ]]; then
             pip install oss2
